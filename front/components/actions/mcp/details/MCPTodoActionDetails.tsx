@@ -2,43 +2,38 @@ import { ActionDocumentTextIcon, ContentMessage } from "@dust-tt/sparkle";
 
 import { ActionDetailsWrapper } from "@app/components/actions/ActionDetailsWrapper";
 import type { ToolExecutionDetailsProps } from "@app/components/actions/mcp/details/types";
-import { getOutputText } from "@app/lib/actions/mcp_internal_actions/output_schemas";
+import {
+  getOutputText,
+  isTodoResultResourceType,
+} from "@app/lib/actions/mcp_internal_actions/output_schemas";
 import { asDisplayName } from "@app/types";
+import { isString } from "@app/types/shared/utils/general";
 
 export function MCPTodoActionDetails({
   toolOutput,
   toolParams,
   viewType,
 }: ToolExecutionDetailsProps) {
-  // Try to extract structured data from output resource
-  const todoResource = toolOutput?.find(
-    (o) =>
-      o.type === "resource" &&
-      "resource" in o &&
-      o.resource.mimeType === "application/vnd.dust.tool-output.todo-result"
-  );
+  // Try to extract structured data from output resource.
+  const todoResource = toolOutput?.find(isTodoResultResourceType);
 
-  const structuredData =
-    todoResource && "resource" in todoResource
-      ? (todoResource.resource as {
-          operation?: string;
-          todoTitle?: string;
-          todoStatus?: string;
-          todoDescription?: string;
-        })
+  const structuredData = todoResource ? todoResource.resource : null;
+
+  const todoTitleFromParams =
+    toolParams && "title" in toolParams && isString(toolParams.title) ? toolParams.title : null;
+
+  const todoStatusFromParams =
+    toolParams && "status" in toolParams && isString(toolParams.status)
+      ? toolParams.status
       : null;
 
-  const todoTitle =
-    structuredData?.todoTitle ||
-    (toolParams && "title" in toolParams ? (toolParams.title as string) : null);
+  const todoTitle = structuredData?.todoTitle ?? todoTitleFromParams;
 
-  const todoStatus =
-    structuredData?.todoStatus ||
-    (toolParams && "status" in toolParams ? (toolParams.status as string) : null);
+  const todoStatus = structuredData?.todoStatus ?? todoStatusFromParams;
 
   // Build action name based on operation
   const getActionName = () => {
-    const operation = structuredData?.operation || "todo";
+    const operation = structuredData?.operation ?? "todo";
 
     switch (operation) {
       case "create_todo":
@@ -96,27 +91,31 @@ export function MCPTodoActionDetails({
             </div>
           )}
 
-          {"description" in toolParams && toolParams.description && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-foreground dark:text-foreground-night">
-                Description
-              </span>
-              <span className="text-sm text-muted-foreground dark:text-muted-foreground-night">
-                {toolParams.description as string}
-              </span>
-            </div>
-          )}
+          {"description" in toolParams &&
+            toolParams.description &&
+            isString(toolParams.description) && (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-foreground dark:text-foreground-night">
+                  Description
+                </span>
+                <span className="text-sm text-muted-foreground dark:text-muted-foreground-night">
+                  {toolParams.description}
+                </span>
+              </div>
+            )}
 
-          {"status" in toolParams && toolParams.status && (
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-foreground dark:text-foreground-night">
-                Status
-              </span>
-              <span className="text-sm text-muted-foreground dark:text-muted-foreground-night">
-                {asDisplayName(toolParams.status as string)}
-              </span>
-            </div>
-          )}
+          {"status" in toolParams &&
+            toolParams.status &&
+            isString(toolParams.status) && (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-foreground dark:text-foreground-night">
+                  Status
+                </span>
+                <span className="text-sm text-muted-foreground dark:text-muted-foreground-night">
+                  {asDisplayName(toolParams.status)}
+                </span>
+              </div>
+            )}
 
           {outputText && (
             <div className="flex flex-col gap-2">

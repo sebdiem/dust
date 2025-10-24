@@ -1118,3 +1118,53 @@ export const isAgentPauseOutputResourceType = (
     AgentPauseOutputResourceSchema.safeParse(outputBlock.resource).success
   );
 };
+
+// Todo MCP server result.
+
+export const TodoResultResourceSchema = z.object({
+  mimeType: z.literal("application/vnd.dust.tool-output.todo-result"),
+  text: z.string(),
+  uri: z.string(),
+  operation: z.string().optional(),
+  todoId: z.string().optional(),
+  todolistId: z.string().optional(),
+  todoTitle: z.string().optional(),
+  todoStatus: z.string().optional(),
+  todoDescription: z.string().optional(),
+  todolistName: z.string().optional(),
+  todolistCount: z.number().optional(),
+  todoCount: z.number().optional(),
+  todolists: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        todoCount: z.number(),
+      })
+    )
+    .optional(),
+  todos: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        status: z.string(),
+        description: z.string().optional(),
+      })
+    )
+    .optional(),
+});
+
+export type TodoResultResourceType = z.infer<typeof TodoResultResourceSchema>;
+
+export const isTodoResultResourceType = (
+  outputBlock: CallToolResult["content"][number]
+): outputBlock is {
+  type: "resource";
+  resource: TodoResultResourceType;
+} => {
+  return (
+    outputBlock.type === "resource" &&
+    TodoResultResourceSchema.safeParse(outputBlock.resource).success
+  );
+};

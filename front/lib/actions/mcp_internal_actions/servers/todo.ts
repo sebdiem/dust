@@ -45,23 +45,6 @@ function getUserId(auth: Authenticator): string {
   return user?.id ? user.id.toString() : "anonymous";
 }
 
-function getOrCreateDefaultTodoList(userId: string): string {
-  const userLists = todoListStore.get(userId) || new Map();
-
-  // Check if default list exists
-  const defaultListId = "default";
-  if (!userLists.has(defaultListId)) {
-    userLists.set(defaultListId, {
-      id: defaultListId,
-      name: "My Tasks",
-      createdAt: Date.now(),
-      todos: [],
-    });
-    todoListStore.set(userId, userLists);
-  }
-
-  return defaultListId;
-}
 
 function createServer(
   auth: Authenticator,
@@ -84,7 +67,7 @@ function createServer(
       async ({ name }) => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
 
           const newListId = `list_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const newList = {
@@ -135,7 +118,7 @@ function createServer(
       async () => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
 
           if (userLists.size === 0) {
             return new Ok([
@@ -208,7 +191,7 @@ function createServer(
       async ({ todolist_id }) => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
           const todoList = userLists.get(todolist_id);
 
           if (!todoList) {
@@ -275,7 +258,7 @@ function createServer(
       async ({ todolist_id, title, description, status = "pending" }) => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
           const todoList = userLists.get(todolist_id);
 
           if (!todoList) {
@@ -295,7 +278,11 @@ function createServer(
             updatedAt: Date.now(),
           };
 
-          todoList.todos.push(newTodo);
+          const updatedTodoList = {
+            ...todoList,
+            todos: [...todoList.todos, newTodo],
+          };
+          userLists.set(todolist_id, updatedTodoList);
           todoListStore.set(userId, userLists);
 
           return new Ok([
@@ -349,7 +336,7 @@ function createServer(
       async ({ todolist_id, status = "all" }) => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
           const todoList = userLists.get(todolist_id);
 
           if (!todoList) {
@@ -459,7 +446,7 @@ function createServer(
       async ({ todolist_id, id, title, description, status }) => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
           const todoList = userLists.get(todolist_id);
 
           if (!todoList) {
@@ -482,32 +469,38 @@ function createServer(
 
           const todo = todoList.todos[todoIndex];
 
-          if (title !== undefined) {
-            todo.title = title;
-          }
-          if (description !== undefined) {
-            todo.description = description;
-          }
-          if (status !== undefined) {
-            todo.status = status;
-          }
-          todo.updatedAt = Date.now();
+          const updatedTodo = {
+            ...todo,
+            title: title !== undefined ? title : todo.title,
+            description: description !== undefined ? description : todo.description,
+            status: status !== undefined ? status : todo.status,
+            updatedAt: Date.now(),
+          };
 
+          const updatedTodoList = {
+            ...todoList,
+            todos: [
+              ...todoList.todos.slice(0, todoIndex),
+              updatedTodo,
+              ...todoList.todos.slice(todoIndex + 1),
+            ],
+          };
+          userLists.set(todolist_id, updatedTodoList);
           todoListStore.set(userId, userLists);
 
           return new Ok([
             {
               type: "resource",
               resource: {
-                uri: `todo://${todolist_id}/${todo.id}`,
+                uri: `todo://${todolist_id}/${updatedTodo.id}`,
                 mimeType: "application/vnd.dust.tool-output.todo-result",
                 text: "Todo updated successfully!",
                 operation: "update_todo",
-                todoId: todo.id,
+                todoId: updatedTodo.id,
                 todolistId: todolist_id,
-                todoTitle: todo.title,
-                todoStatus: todo.status,
-                todoDescription: todo.description,
+                todoTitle: updatedTodo.title,
+                todoStatus: updatedTodo.status,
+                todoDescription: updatedTodo.description,
               },
             },
           ]);
@@ -540,7 +533,7 @@ function createServer(
       async ({ todolist_id, id }) => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
           const todoList = userLists.get(todolist_id);
 
           if (!todoList) {
@@ -562,7 +555,11 @@ function createServer(
           }
 
           const deletedTodo = todoList.todos[todoIndex];
-          todoList.todos.splice(todoIndex, 1);
+          const updatedTodoList = {
+            ...todoList,
+            todos: todoList.todos.filter((_, index) => index !== todoIndex),
+          };
+          userLists.set(todolist_id, updatedTodoList);
           todoListStore.set(userId, userLists);
 
           return new Ok([
@@ -610,7 +607,7 @@ function createServer(
       async ({ todolist_id, id }) => {
         try {
           const userId = getUserId(auth);
-          const userLists = todoListStore.get(userId) || new Map();
+          const userLists = todoListStore.get(userId) ?? new Map();
           const todoList = userLists.get(todolist_id);
 
           if (!todoList) {

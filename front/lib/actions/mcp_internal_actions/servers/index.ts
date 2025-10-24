@@ -48,6 +48,7 @@ import { default as slideshowServer } from "@app/lib/actions/mcp_internal_action
 import { default as soundStudio } from "@app/lib/actions/mcp_internal_actions/servers/sound_studio";
 import { default as speechGenerator } from "@app/lib/actions/mcp_internal_actions/servers/speech_generator";
 import { default as tablesQueryServerV2 } from "@app/lib/actions/mcp_internal_actions/servers/tables_query";
+import { default as todoServer } from "@app/lib/actions/mcp_internal_actions/servers/todo";
 import { default as toolsetsServer } from "@app/lib/actions/mcp_internal_actions/servers/toolsets";
 import { default as valtownServer } from "@app/lib/actions/mcp_internal_actions/servers/valtown";
 import { default as webtoolsServer } from "@app/lib/actions/mcp_internal_actions/servers/webtools";
@@ -190,6 +191,8 @@ export async function getInternalMCPServer(
       return valtownServer(auth, agentLoopContext);
     case "deep_dive":
       return deepDiveServer(auth, agentLoopContext);
+    case "todo":
+      return todoServer(auth, agentLoopContext);
     default:
       assertNever(internalMCPServerName);
   }

@@ -8,6 +8,16 @@ import type { AgentLoopContextType } from "@app/lib/actions/types";
 import type { Authenticator } from "@app/lib/auth";
 import { Err, normalizeError, Ok } from "@app/types";
 
+// Todo status enum
+const TODO_STATUSES = ["pending", "in_progress", "completed"] as const;
+type TodoStatus = (typeof TODO_STATUSES)[number];
+
+const TODO_STATUS_EMOJIS: Record<TodoStatus, string> = {
+  pending: "⏳",
+  in_progress: "🔄",
+  completed: "✅",
+};
+
 // In-memory storage for todos (per user session)
 // In a real implementation, this would be persisted to a database
 const todoStore = new Map<
@@ -16,7 +26,7 @@ const todoStore = new Map<
     id: string;
     title: string;
     description?: string;
-    status: "pending" | "in_progress" | "completed";
+    status: TodoStatus;
     createdAt: number;
     updatedAt: number;
   }>
@@ -37,18 +47,14 @@ function createServer(
     "create_todo",
     "Create a new todo item with a title and optional description.",
     {
-      title: z
-        .string()
-        .min(1)
-        .max(500)
-        .describe("The title of the todo item."),
+      title: z.string().min(1).max(500).describe("The title of the todo item."),
       description: z
         .string()
         .max(2000)
         .optional()
         .describe("Optional detailed description of the todo item."),
       status: z
-        .enum(["pending", "in_progress", "completed"])
+        .enum(TODO_STATUSES)
         .optional()
         .default("pending")
         .describe("Initial status of the todo item. Defaults to 'pending'."),
@@ -78,8 +84,17 @@ function createServer(
 
           return new Ok([
             {
-              type: "text",
-              text: `Todo created successfully!\nID: ${newTodo.id}\nTitle: ${title}\nStatus: ${status}`,
+              type: "resource",
+              resource: {
+                uri: `todo://${newTodo.id}`,
+                mimeType: "application/vnd.dust.tool-output.todo-result",
+                text: "Todo created successfully!",
+                operation: "create_todo",
+                todoId: newTodo.id,
+                todoTitle: newTodo.title,
+                todoStatus: newTodo.status,
+                todoDescription: newTodo.description,
+              },
             },
           ]);
         } catch (e) {
@@ -97,7 +112,7 @@ function createServer(
     "List all todo items, optionally filtered by status.",
     {
       status: z
-        .enum(["pending", "in_progress", "completed", "all"])
+        .enum([...TODO_STATUSES, "all"])
         .optional()
         .default("all")
         .describe(
@@ -123,11 +138,19 @@ function createServer(
           if (filteredTodos.length === 0) {
             return new Ok([
               {
-                type: "text",
-                text:
-                  status === "all"
-                    ? "No todos found."
-                    : `No todos found with status: ${status}`,
+                type: "resource",
+                resource: {
+                  uri: "todo://list",
+                  mimeType: "application/vnd.dust.tool-output.todo-result",
+                  text:
+                    status === "all"
+                      ? "No todos found."
+                      : `No todos found with status: ${status}`,
+                  operation: "list_todos",
+                  todoStatus: status,
+                  todoCount: 0,
+                  todos: [],
+                },
               },
             ]);
           }
@@ -135,7 +158,7 @@ function createServer(
           const todoList = filteredTodos
             .map(
               (todo) =>
-                `[${todo.status.toUpperCase()}] ${todo.title}\n  ID: ${todo.id}${
+                `${TODO_STATUS_EMOJIS[todo.status]} ${todo.title}\n  ID: ${todo.id}${
                   todo.description ? `\n  Description: ${todo.description}` : ""
                 }`
             )
@@ -143,8 +166,21 @@ function createServer(
 
           return new Ok([
             {
-              type: "text",
-              text: `Found ${filteredTodos.length} todo(s):\n\n${todoList}`,
+              type: "resource",
+              resource: {
+                uri: "todo://list",
+                mimeType: "application/vnd.dust.tool-output.todo-result",
+                text: `${todoList}`,
+                operation: "list_todos",
+                todoStatus: status,
+                todoCount: filteredTodos.length,
+                todos: filteredTodos.map((todo) => ({
+                  id: todo.id,
+                  title: todo.title,
+                  status: todo.status,
+                  description: todo.description,
+                })),
+              },
             },
           ]);
         } catch (e) {
@@ -174,7 +210,7 @@ function createServer(
         .optional()
         .describe("New description for the todo item."),
       status: z
-        .enum(["pending", "in_progress", "completed"])
+        .enum(TODO_STATUSES)
         .optional()
         .describe("New status for the todo item."),
     },
@@ -215,8 +251,17 @@ function createServer(
 
           return new Ok([
             {
-              type: "text",
-              text: `Todo updated successfully!\nID: ${todo.id}\nTitle: ${todo.title}\nStatus: ${todo.status}`,
+              type: "resource",
+              resource: {
+                uri: `todo://${todo.id}`,
+                mimeType: "application/vnd.dust.tool-output.todo-result",
+                text: "Todo updated successfully!",
+                operation: "update_todo",
+                todoId: todo.id,
+                todoTitle: todo.title,
+                todoStatus: todo.status,
+                todoDescription: todo.description,
+              },
             },
           ]);
         } catch (e) {
@@ -261,8 +306,17 @@ function createServer(
 
           return new Ok([
             {
-              type: "text",
-              text: `Todo deleted successfully!\nTitle: ${deletedTodo.title}`,
+              type: "resource",
+              resource: {
+                uri: `todo://${deletedTodo.id}`,
+                mimeType: "application/vnd.dust.tool-output.todo-result",
+                text: "Todo deleted successfully!",
+                operation: "delete_todo",
+                todoId: deletedTodo.id,
+                todoTitle: deletedTodo.title,
+                todoStatus: deletedTodo.status,
+                todoDescription: deletedTodo.description,
+              },
             },
           ]);
         } catch (e) {
@@ -306,14 +360,23 @@ function createServer(
 
           return new Ok([
             {
-              type: "text",
-              text: `Todo Details:
+              type: "resource",
+              resource: {
+                uri: `todo://${todo.id}`,
+                mimeType: "application/vnd.dust.tool-output.todo-result",
+                text: `Todo Details:
 ID: ${todo.id}
 Title: ${todo.title}
 Description: ${todo.description || "N/A"}
 Status: ${todo.status}
 Created: ${createdDate}
 Updated: ${updatedDate}`,
+                operation: "get_todo",
+                todoId: todo.id,
+                todoTitle: todo.title,
+                todoStatus: todo.status,
+                todoDescription: todo.description,
+              },
             },
           ]);
         } catch (e) {

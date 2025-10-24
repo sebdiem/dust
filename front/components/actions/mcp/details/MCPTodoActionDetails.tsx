@@ -10,19 +10,66 @@ export function MCPTodoActionDetails({
   toolParams,
   viewType,
 }: ToolExecutionDetailsProps) {
-  // Extract the tool name from params (if available from context)
-  const toolName = "title" in toolParams ? "Todo action" : "Todo action";
+  // Try to extract structured data from output resource
+  const todoResource = toolOutput?.find(
+    (o) =>
+      o.type === "resource" &&
+      "resource" in o &&
+      o.resource.mimeType === "application/vnd.dust.tool-output.todo-result"
+  );
 
-  // Extract title from params for display
-  const todoTitle =
-    toolParams && "title" in toolParams
-      ? (toolParams.title as string)
+  const structuredData =
+    todoResource && "resource" in todoResource
+      ? (todoResource.resource as {
+          operation?: string;
+          todoTitle?: string;
+          todoStatus?: string;
+          todoDescription?: string;
+        })
       : null;
 
-  // Build action name with title if available
-  const actionName = todoTitle
-    ? `${asDisplayName(toolName)}: ${todoTitle}`
-    : asDisplayName(toolName);
+  const todoTitle =
+    structuredData?.todoTitle ||
+    (toolParams && "title" in toolParams ? (toolParams.title as string) : null);
+
+  const todoStatus =
+    structuredData?.todoStatus ||
+    (toolParams && "status" in toolParams ? (toolParams.status as string) : null);
+
+  // Build action name based on operation
+  const getActionName = () => {
+    const operation = structuredData?.operation || "todo";
+
+    switch (operation) {
+      case "create_todo":
+        return todoTitle ? `Creating todo: ${todoTitle}` : "Creating todo";
+      case "update_todo":
+        if (todoTitle && todoStatus) {
+          return `Marking "${todoTitle}" as ${asDisplayName(todoStatus)}`;
+        }
+        if (todoStatus) {
+          return `Changing todo status to ${asDisplayName(todoStatus)}`;
+        }
+        if (todoTitle) {
+          return `Updating todo: ${todoTitle}`;
+        }
+        return "Updating todo";
+      case "delete_todo":
+        return "Deleting todo";
+      case "get_todo":
+        return "Getting todo details";
+      case "list_todos":
+        const statusFilter =
+          todoStatus && todoStatus !== "all"
+            ? ` (${asDisplayName(todoStatus)})`
+            : "";
+        return `Listing todos${statusFilter}`;
+      default:
+        return asDisplayName(operation);
+    }
+  };
+
+  const actionName = getActionName();
 
   // Extract output text
   const outputText = toolOutput

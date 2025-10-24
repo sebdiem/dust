@@ -31,6 +31,7 @@ import { MCPListToolsActionDetails } from "@app/components/actions/mcp/details/M
 import { MCPReasoningActionDetails } from "@app/components/actions/mcp/details/MCPReasoningActionDetails";
 import { MCPRunAgentActionDetails } from "@app/components/actions/mcp/details/MCPRunAgentActionDetails";
 import { MCPTablesQueryActionDetails } from "@app/components/actions/mcp/details/MCPTablesQueryActionDetails";
+import { MCPTodoActionDetails } from "@app/components/actions/mcp/details/MCPTodoActionDetails";
 import { SearchResultDetails } from "@app/components/actions/mcp/details/MCPToolOutputDetails";
 import type { ToolExecutionDetailsProps } from "@app/components/actions/mcp/details/types";
 import { InternalActionIcons } from "@app/components/resources/resources_icons";
@@ -253,6 +254,10 @@ export function MCPActionDetails({
 
   if (isInternalMCPServerOfName(mcpServerId, "agent_management")) {
     return <MCPAgentManagementActionDetails {...toolOutputDetailsProps} />;
+  }
+
+  if (isInternalMCPServerOfName(mcpServerId, "todo")) {
+    return <MCPTodoActionDetails {...toolOutputDetailsProps} />;
   }
 
   if (isInternalMCPServerOfName(mcpServerId, "data_warehouses")) {
